@@ -1,0 +1,32 @@
+{
+  "tokenId": 10,
+  "name": "Mintpad Demo NFT #10",
+  "description": "This is a Mintpad demo collection",
+  "image": "10.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Background 2"
+    },
+    {
+      "trait_type": "Green",
+      "value": "Green 1"
+    },
+    {
+      "trait_type": "Pink",
+      "value": "Pink 3"
+    },
+    {
+      "trait_type": "Purple",
+      "value": "Purple 5"
+    },
+    {
+      "trait_type": "Red",
+      "value": "Red 5"
+    },
+    {
+      "trait_type": "Yellow",
+      "value": "Yellow 4"
+    }
+  ]
+}
