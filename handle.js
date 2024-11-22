@@ -47,12 +47,12 @@ const s3 = new S3Client({
   endpoint: 'https://s3.filebase.com',
   region: 'us-east-1',
   credentials: {
-    accessKeyId: 'A0868E2870B1D4049F99',
-    secretAccessKey: 'iJSfqWT3w2SgAQ3EFbN0DZsotm4zhLG81vOX3Wif',
+    accessKeyId: 'A48CAC64950102A937C2',
+    secretAccessKey: 'd3TAsDywR9xH5eW6TaoYJsgJXbvFutfytPIRzdtD',
   },
 });
 
-const bucketName = 'koireng';
+const bucketName = 'koirengrilso';
 let lastRootCID = null; // Variable to store the last Root CID
 
 // Function to create a CAR file and log the root CID
@@ -103,14 +103,14 @@ const uploadCarFile = async (carFilePath) => {
   }
 };
 
-// Multer configuration for file uploads
+// Multer configuration for file uploads with a 2GB file size limit
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     if (!req.uploadedFolder) {
       req.uploadedFolder = getNextFolderNumber().toString();
     }
     const folderPath = path.join(baseDir, req.uploadedFolder);
-    const subfolder = file.mimetype.startsWith('image/') ? 'images' : 'metadata';
+    const subfolder = file.mimetype.startsWith('image/') || file.mimetype === 'video/mp4' ? 'images' : 'metadata';
     const fullPath = path.join(folderPath, subfolder);
     fs.ensureDirSync(fullPath);
     cb(null, fullPath);
@@ -120,12 +120,17 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 2 * 1024 * 1024 * 1024, // 2GB file size limit
+  },
+});
 
 // Helper to find the image file extension
-const getImageExtension = (fileName, folderPath) => {
-  const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.mp4'];
-  for (const ext of imageExtensions) {
+const getFileExtension = (fileName, folderPath) => {
+  const validExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.mp4'];
+  for (const ext of validExtensions) {
     if (fs.existsSync(path.join(folderPath, `${fileName}${ext}`))) {
       return ext;
     }
@@ -142,17 +147,17 @@ const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
       const filePath = path.join(metadataFolderPath, file);
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       const fileName = path.basename(file, '.json');
-      const imageExtension = getImageExtension(fileName, path.join(metadataFolderPath, '..', 'images'));
+      const fileExtension = getFileExtension(fileName, path.join(metadataFolderPath, '..', 'images'));
 
-      // Update image link with root CID
-      data.image = `ipfs://${rootCID}/${fileName}${imageExtension}`;
+      // If it's a video, update the metadata with the `video` field instead of `image`
+      if (fileExtension === '.mp4') {
+        data.video = `ipfs://${rootCID}/${fileName}${fileExtension}`;
+      } else {
+        data.image = `ipfs://${rootCID}/${fileName}${fileExtension}`;
+      }
+
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-
-      // Rename file to remove .json suffix
-      const newFilePath = path.join(metadataFolderPath, fileName);
-      fs.renameSync(filePath, newFilePath);
-
-      console.log(`Updated and renamed ${file} to ${fileName}`);
+      console.log(`Updated metadata file: ${file}`);
     }
   } catch (error) {
     console.error('Error updating metadata files:', error);
@@ -164,6 +169,9 @@ const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
 app.post('/uploadfiles', (req, res) => {
   upload.any()(req, res, async (err) => {
     if (err) {
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File is too large. Maximum size is 2GB' });
+      }
       return res.status(500).json({ error: 'Error uploading files.' });
     }
 
@@ -199,8 +207,6 @@ app.post('/uploadfiles', (req, res) => {
     }
   });
 });
-
-  
 
 // Start the server
 app.listen(PORT, () => {
