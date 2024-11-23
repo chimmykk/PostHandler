@@ -11,7 +11,7 @@ const PORT = 8020;
 
 // CORS configuration
 const corsOptions = {
-  origin: 'http://localhost:3000', // Allow frontend origin
+  origin: '', // Allow frontend origin
   methods: ['POST', 'GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400, // Cache preflight request results for 24 hours
@@ -138,7 +138,7 @@ const getFileExtension = (fileName, folderPath) => {
   return '.png'; // Default to .png if no match
 };
 
-// Update metadata files
+// Update metadata files (remove .json extension and update metadata)
 const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
   try {
     const files = fs.readdirSync(metadataFolderPath).filter((file) => file.endsWith('.json'));
@@ -156,8 +156,13 @@ const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
         data.image = `ipfs://${rootCID}/${fileName}${fileExtension}`;
       }
 
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      // Write the updated metadata without the .json extension
+      const newFilePath = path.join(metadataFolderPath, fileName); // Save without .json extension
+      fs.writeFileSync(newFilePath, JSON.stringify(data, null, 2), 'utf-8');
       console.log(`Updated metadata file: ${file}`);
+
+      // Optionally, delete the original .json file after processing
+      fs.unlinkSync(filePath);
     }
   } catch (error) {
     console.error('Error updating metadata files:', error);
