@@ -11,7 +11,7 @@ const PORT = 8020;
 
 // CORS configuration
 const corsOptions = {
-  origin: '', // Allow frontend origin
+  origin: 'http://localhost:3000', // Allow frontend origin
   methods: ['POST', 'GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400, // Cache preflight request results for 24 hours
@@ -138,7 +138,6 @@ const getFileExtension = (fileName, folderPath) => {
   return '.png'; // Default to .png if no match
 };
 
-// Update metadata files (remove .json extension and update metadata)
 const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
   try {
     const files = fs.readdirSync(metadataFolderPath).filter((file) => file.endsWith('.json'));
@@ -146,22 +145,24 @@ const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
     for (const file of files) {
       const filePath = path.join(metadataFolderPath, file);
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      const fileName = path.basename(file, '.json');
-      const fileExtension = getFileExtension(fileName, path.join(metadataFolderPath, '..', 'images'));
+      const fileName = path.basename(file, '.json'); // Get the base file name without extension
+      const fileExtension = getFileExtension(fileName, path.join(metadataFolderPath, '..', 'images')); // Check corresponding image/video extension
 
-      // If it's a video, update the metadata with the `video` field instead of `image`
+      // Update metadata: If it's a video, update `video` attribute; otherwise, update `image` attribute
       if (fileExtension === '.mp4') {
         data.video = `ipfs://${rootCID}/${fileName}${fileExtension}`;
       } else {
         data.image = `ipfs://${rootCID}/${fileName}${fileExtension}`;
       }
 
-      // Write the updated metadata without the .json extension
-      const newFilePath = path.join(metadataFolderPath, fileName); // Save without .json extension
-      fs.writeFileSync(newFilePath, JSON.stringify(data, null, 2), 'utf-8');
-      console.log(`Updated metadata file: ${file}`);
+      // New file path without `.json` extension
+      const newFilePath = path.join(metadataFolderPath, fileName); // Exclude `.json` extension
 
-      // Optionally, delete the original .json file after processing
+      // Write the updated metadata to the new file
+      fs.writeFileSync(newFilePath, JSON.stringify(data, null, 2), 'utf-8');
+      console.log(`Updated metadata file and removed .json extension: ${newFilePath}`);
+
+      // Delete the original .json file
       fs.unlinkSync(filePath);
     }
   } catch (error) {
@@ -169,6 +170,7 @@ const updateMetadataFiles = async (metadataFolderPath, rootCID) => {
     throw error;
   }
 };
+
 
 // POST endpoint to handle file uploads
 app.post('/uploadfiles', (req, res) => {
@@ -213,7 +215,12 @@ app.post('/uploadfiles', (req, res) => {
   });
 });
 
-// Start the server
-app.listen(PORT, () => {
+// Start the server with increased timeout
+const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+// Increase timeout to 10 minutes
+server.timeout = 600000; // 10 minutes
+server.keepAliveTimeout = 600000; // 10 minutes
+server.headersTimeout = 600010; // Slightly more than keepAliveTimeout
