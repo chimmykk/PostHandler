@@ -7,6 +7,7 @@ const { packToFs } = require('ipfs-car/pack/fs');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const EventEmitter = require('events');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 8020;
@@ -434,26 +435,31 @@ app.post('/uploadfiles', (req, res) => {
 
       console.log('Processing final merged folder...');
       const finalFolder = await mergeChunks(sessionId);
+
+      const generateRandomFileName = () => {
+  return crypto.randomBytes(6).toString('hex');
+};
+
       
       // Process images
-      const imagesFolderPath = path.join(finalFolder, 'images');
-      const imagesCarPath = path.join(finalFolder, 'images.car');
-      console.log('Creating images CAR file...');
-      const { rootCID: imagesRootCID } = await createCarFile(imagesFolderPath, imagesCarPath, sessionId, 'images');
+    
+const imagesFolderPath = path.join(finalFolder, 'images');
+const imagesCarPath = path.join(finalFolder, `${generateRandomFileName()}.car`);
+console.log('Creating images CAR file...');
+const { rootCID: imagesRootCID } = await createCarFile(imagesFolderPath, imagesCarPath, sessionId, 'images');
+console.log('Uploading images CAR file...');
+await uploadCarFile(imagesCarPath, sessionId, 'images');
 
-      console.log('Uploading images CAR file...');
-      await uploadCarFile(imagesCarPath, sessionId, 'images');
+// Process metadata
+const metadataFolderPath = path.join(finalFolder, 'metadata');
+console.log('Updating metadata files...');
+await updateMetadataFiles(metadataFolderPath, imagesRootCID, sessionId);
 
-      // Process metadata
-      const metadataFolderPath = path.join(finalFolder, 'metadata');
-      console.log('Updating metadata files...');
-      await updateMetadataFiles(metadataFolderPath, imagesRootCID, sessionId);
-      
-      const metadataCarPath = path.join(finalFolder, 'metadata.car');
-      console.log('Creating metadata CAR file...');
-      const { rootCID: metadataRootCID } = await createCarFile(metadataFolderPath, metadataCarPath, sessionId, 'metadata');
-      console.log('Uploading metadata CAR file...');
-      await uploadCarFile(metadataCarPath, sessionId, 'metadata');
+const metadataCarPath = path.join(finalFolder, `${generateRandomFileName()}.car`);
+console.log('Creating metadata CAR file...');
+const { rootCID: metadataRootCID } = await createCarFile(metadataFolderPath, metadataCarPath, sessionId, 'metadata');
+console.log('Uploading metadata CAR file...');
+await uploadCarFile(metadataCarPath, sessionId, 'metadata');
 
       // Cleanup
       await fs.remove(finalFolder);
